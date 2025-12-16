@@ -8,10 +8,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:noise_meter/noise_meter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
+import '../../../../core/services/permission_service.dart';
 import '../bloc/pitch_bloc.dart';
 import '../bloc/pitch_event.dart';
 import '../bloc/pitch_state.dart';
 import 'pitch_result_page.dart';
+
 
 class PitchRecordingPage extends StatefulWidget {
   const PitchRecordingPage({Key? key}) : super(key: key);
@@ -23,6 +25,7 @@ class PitchRecordingPage extends StatefulWidget {
 class _PitchRecordingPageState extends State<PitchRecordingPage>
     with SingleTickerProviderStateMixin {
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final PermissionService _permissionService = PermissionService();
   bool _isRecording = false;
   bool _isAnalyzing = false;
   int _recordDuration = 0;
@@ -92,6 +95,22 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
 
   Future<void> _startRecording() async {
     try {
+      // ✅ Request permission dulu sebelum recording
+      bool hasPermission = await _permissionService.requestMicrophonePermission();
+
+      if (!hasPermission) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Microphone permission is required to record audio'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Lanjutkan dengan recording jika permission granted
       if (await _audioRecorder.hasPermission()) {
         final Directory appDocumentsDir =
             await getApplicationDocumentsDirectory();
@@ -104,6 +123,7 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
             encoder: AudioEncoder.wav,
             bitRate: 128000,
             sampleRate: 44100,
+            numChannels: 1,
           ),
           path: filePath,
         );

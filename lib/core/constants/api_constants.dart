@@ -1,6 +1,6 @@
 class ApiConstants {
   // Base URL - sesuaikan dengan backend Anda
-  static const String baseUrl = 'http://192.168.X.X:5000';
+  static const String baseUrl = 'https://securities-pushed-specialists-languages.trycloudflare.com/';
   
   // Endpoints
   static const String analyzeEndpoint = '/api/analyze';

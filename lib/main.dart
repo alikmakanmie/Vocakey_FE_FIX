@@ -2,21 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import 'core/theme/app_theme.dart';
-import 'core/presentation/widgets/main_layout.dart';  // ✅ Tambahkan ini
-
+import 'core/presentation/widgets/main_layout.dart';
 import 'features/splash/presentation/pages/splash_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/home/presentation/bloc/home_bloc.dart';
-import 'features/home/presentation/bloc/home_event.dart';  // ✅ Tambahkan import ini
+import 'features/home/presentation/bloc/home_event.dart';
 import 'features/pitch/presentation/pages/pitch_recording_page.dart';
 import 'features/pitch/presentation/pages/pitch_result_page.dart';
 import 'features/pitch/presentation/bloc/pitch_bloc.dart';
 import 'features/pitch/domain/entities/analysis_result.dart';
 import 'features/song/presentation/pages/song_list_page.dart';
-import 'features/song/presentation/pages/song_detail_page.dart';
-import 'features/song/presentation/bloc/song_bloc.dart';
+import 'features/song/presentation/pages/song_detail_page.dart'; // ✅ Import SongDetailPage
 import 'injection_container.dart' as di;
 
 void main() async {
@@ -63,15 +60,13 @@ class VocaKeyApp extends StatelessWidget {
                 return MaterialPageRoute(
                   builder: (_) => const SplashPage(),
                 );
-              
               case '/home':
                 return MaterialPageRoute(
-                builder: (_) => BlocProvider(
-                create: (_) => di.sl<HomeBloc>()..add(LoadLastAnalysisEvent()),
-                child: const MainLayout(initialIndex: 0),  // ✅ Wrap dengan MainLayout
-                    ),
-                      );
-              
+                  builder: (_) => BlocProvider(
+                    create: (_) => di.sl<HomeBloc>()..add(LoadLastAnalysisEvent()),
+                    child: const MainLayout(initialIndex: 0),
+                  ),
+                );
               case '/pitch-recording':
                 return MaterialPageRoute(
                   builder: (_) => BlocProvider(
@@ -79,30 +74,24 @@ class VocaKeyApp extends StatelessWidget {
                     child: const PitchRecordingPage(),
                   ),
                 );
-              
               case '/pitch-result':
                 final result = settings.arguments as AnalysisResult;
                 return MaterialPageRoute(
                   builder: (_) => PitchResultPage(result: result),
                 );
-              
               case '/songs':
-  return MaterialPageRoute(
-    builder: (_) => BlocProvider(
-      create: (_) => di.sl<SongBloc>(),
-      child: const MainLayout(initialIndex: 1),  // ✅ Start dari tab Lagu
-    ),
-  );
-              
-              case '/song-detail':
-                final songId = settings.arguments as String;
                 return MaterialPageRoute(
                   builder: (_) => BlocProvider(
-                    create: (_) => di.sl<SongBloc>(),
-                    child: SongDetailPage(songId: songId),
+                    create: (_) => di.sl<HomeBloc>(),
+                    child: const MainLayout(initialIndex: 1),
                   ),
                 );
-              
+              case '/song-detail':
+                // ✅ UPDATE: Terima SongDetailArguments
+                final args = settings.arguments as SongDetailArguments;
+                return MaterialPageRoute(
+                  builder: (_) => SongDetailPage(arguments: args),
+                );
               default:
                 return MaterialPageRoute(
                   builder: (_) => const Scaffold(

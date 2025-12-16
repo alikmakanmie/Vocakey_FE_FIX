@@ -7,6 +7,7 @@ import '../../../../core/utils/responsive_helper.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/home_state.dart';
 import '../widgets/song_card.dart';
+import '../../../song/presentation/pages/song_detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -28,7 +29,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchSongs() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.3.2:5000/api/songs'),
+        Uri.parse('https://securities-pushed-specialists-languages.trycloudflare.com//api/songs'),
       );
 
       if (response.statusCode == 200) {
@@ -51,12 +52,21 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      // ✅ Tambahkan ini agar gradient memenuhi seluruh layar
+      width: double.infinity,
+      height: double.infinity,
       decoration: const BoxDecoration(
         gradient: AppColors.backgroundGradient,
       ),
       child: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(ResponsiveHelper.mediumSpacing),
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.only(
+            left: ResponsiveHelper.mediumSpacing,
+            right: ResponsiveHelper.mediumSpacing,
+            top: ResponsiveHelper.mediumSpacing,
+            bottom: 100, // ✅ Space untuk bottom navigation bar
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -87,8 +97,8 @@ class _HomePageState extends State<HomePage> {
               // BlocBuilder untuk display data
               BlocBuilder<HomeBloc, HomeState>(
                 builder: (context, state) {
-                  String displayNote = 'A# minor';
-                  String displaySubtext = 'A# - D2 - 64.2%';
+                  String displayNote = 'D#';
+                  String displaySubtext = 'C2 - A6 • 75.2%';
 
                   if (state is HomeAnalysisLoaded) {
                     displayNote = state.note;
@@ -166,11 +176,14 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.pushNamed(
                                   context,
                                   '/song-detail',
-                                  arguments: {
-                                    'songId': song['id'],
-                                    'songTitle': song['title'],
-                                    'artist': song['artist'],
-                                  },
+                                  arguments: SongDetailArguments(
+                                    songTitle: song['title'] ?? 'Unknown',
+                                    realArtist: song['artist'] ?? 'Unknown Artist',
+                                    realOriginalKey: song['original_key'] ?? 'C major',
+                                    realUserKey: 'C major',
+                                    coverImageUrl: null,
+                                    audioUrl: song['audio_url'],
+                                  ),
                                 );
                               },
                             ),
@@ -178,9 +191,6 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                     ),
-
-              // Extra padding untuk bottom nav dan FAB
-              SizedBox(height: ResponsiveHelper.xLargeSpacing),
             ],
           ),
         ),

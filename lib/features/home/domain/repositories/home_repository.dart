@@ -8,3 +8,4 @@ abstract class HomeRepository {
   Future<Either<Failure, void>> saveRecentNote(String note);
 }
 
+0\

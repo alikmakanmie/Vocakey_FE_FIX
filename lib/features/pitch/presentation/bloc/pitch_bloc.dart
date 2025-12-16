@@ -14,30 +14,61 @@ class PitchBloc extends Bloc<PitchEvent, PitchState> {
     AnalyzeAudioEvent event,
     Emitter<PitchState> emit,
   ) async {
-    print('🔵 BLoC: Starting analysis...'); // ✅ Debug log
+    print('🔵 BLoC: Starting analysis...');
     print('   Audio path: ${event.audioPath}');
-    
-    // ✅ Hapus emit loading jika state tidak ada
-    // emit(PitchAnalysisLoading());
 
+    // Progress 0%
+    emit(PitchAnalyzing(progress: 0.0));
+    print('📊 Progress: 0% - Memulai analisis...');
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // Progress 30%
+    emit(PitchAnalyzing(progress: 0.3));
+    print('📊 Progress: 30% - Mengunggah audio...');
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    // Progress 60%
+    emit(PitchAnalyzing(progress: 0.6));
+    print('📊 Progress: 60% - Memproses pitch detection...');
+    
+    // Call API
     final result = await analyzeAudio(event.audioPath);
+
+    // ✅ EXTRACT hasil DULU sebelum emit
+    bool isSuccess = false;
+    dynamic analysisResult;
+    String? errorMessage;
 
     result.fold(
       (failure) {
-        print('❌ BLoC: Analysis failed - ${failure.message}'); // ✅ Debug log
-        emit(PitchAnalysisError(failure.message));
+        isSuccess = false;
+        errorMessage = failure.message;
+        print('❌ BLoC: Analysis failed - ${failure.message}');
       },
-      (analysisResult) {
-        print('✅ BLoC: Analysis success!'); // ✅ Debug log
-        print('   Note: ${analysisResult.note}');
-        print('   Range: ${analysisResult.vocalRange}');
-        print('   Accuracy: ${analysisResult.accuracy}%');
-        print('   Vocal Type: ${analysisResult.vocalType}');
-        
-        emit(PitchAnalysisSuccess(analysisResult)); // ✅ Emit success
-        
-        print('🟢 BLoC: State emitted - PitchAnalysisSuccess');
+      (success) {
+        isSuccess = true;
+        analysisResult = success;
+        print('✅ BLoC: Analysis success!');
+        print('   Note: ${success.note}');
+        print('   Range: ${success.vocalRange}');
+        print('   Accuracy: ${success.accuracy}%');
+        print('   Vocal Type: ${success.vocalType}');
       },
     );
+
+    // ✅ EMIT berdasarkan hasil extraction
+    if (isSuccess && analysisResult != null) {
+      // Progress 90%
+      emit(PitchAnalyzing(progress: 0.9));
+      print('📊 Progress: 90% - Finalisasi hasil...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Success
+      emit(PitchAnalysisSuccess(analysisResult));
+      print('🟢 BLoC: State emitted - PitchAnalysisSuccess');
+    } else {
+      // Error
+      emit(PitchAnalysisError(errorMessage ?? 'Unknown error'));
+    }
   }
 }

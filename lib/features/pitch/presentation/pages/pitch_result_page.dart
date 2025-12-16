@@ -21,13 +21,38 @@ class _PitchResultPageState extends State<PitchResultPage> {
   @override
   void initState() {
     super.initState();
-    print('=== PITCH RESULT PAGE ===');
-    print('Note: ${widget.result.note}');
-    print('Range: ${widget.result.vocalRange}');
-    print('Accuracy: ${widget.result.accuracy}');
-    print('Vocal Type: ${widget.result.vocalType}');
-    print('Recommendations: ${widget.result.recommendedSongs?.length ?? 0}');
-    print('=======================');
+    
+    // ✅ ENHANCED CONSOLE OUTPUT - Tampilkan detail akurasi di console
+    print('\n' + '=' * 50);
+    print('🎵 PITCH ANALYSIS RESULT (HUMMING)');
+    print('=' * 50);
+    print('📌 Detected Note    : ${widget.result.note}');
+    print('📊 Vocal Range      : ${widget.result.vocalRange}');
+    print('🎯 Accuracy         : ${widget.result.accuracy.toStringAsFixed(2)}%');
+    print('🎤 Vocal Type       : ${widget.result.vocalType ?? "Not detected"}');
+    print('🎼 Recommended Songs: ${widget.result.recommendedSongs.length} songs');
+    
+    // Detail breakdown akurasi
+    if (widget.result.accuracy >= 90) {
+      print('✅ Accuracy Level   : EXCELLENT (>90%)');
+    } else if (widget.result.accuracy >= 75) {
+      print('✅ Accuracy Level   : GOOD (75-90%)');
+    } else if (widget.result.accuracy >= 60) {
+      print('⚠️  Accuracy Level   : FAIR (60-75%)');
+    } else {
+      print('❌ Accuracy Level   : NEEDS IMPROVEMENT (<60%)');
+    }
+    
+    // List recommended songs
+    if (widget.result.recommendedSongs.isNotEmpty) {
+      print('\n📀 Recommended Songs:');
+      for (int i = 0; i < widget.result.recommendedSongs.length; i++) {
+        print('   ${i + 1}. ${widget.result.recommendedSongs[i]}');
+      }
+    }
+    
+    print('=' * 50 + '\n');
+    
     _saveAnalysisResult();
   }
 
@@ -72,9 +97,8 @@ class _PitchResultPageState extends State<PitchResultPage> {
   @override
   Widget build(BuildContext context) {
     // Cek apakah recommendedSongs ada dan tidak kosong
-    final hasRecommendations = widget.result.recommendedSongs != null &&
-        widget.result.recommendedSongs!.isNotEmpty;
-
+    final hasRecommendations = widget.result.recommendedSongs.isNotEmpty;
+    
     return Scaffold(
       extendBodyBehindAppBar: false,
       body: Container(
@@ -154,7 +178,8 @@ class _PitchResultPageState extends State<PitchResultPage> {
                   ),
                   SizedBox(height: ResponsiveHelper.largeSpacing),
 
-                  // Vocal Info
+                  // ❌ HAPUS SECTION AKURASI DI UI
+                  // Vocal Info - TANPA AKURASI
                   Text(
                     'Rentang Vocal: ${widget.result.vocalRange}',
                     style: TextStyle(
@@ -163,15 +188,14 @@ class _PitchResultPageState extends State<PitchResultPage> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: ResponsiveHelper.smallSpacing),
-                  Text(
-                    'Akurasi: ${widget.result.accuracy.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      color: AppColors.textWhite,
-                      fontSize: ResponsiveHelper.fontSize(16),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  
+                  // ❌ DIHAPUS - Tidak tampilkan akurasi di UI
+                  // SizedBox(height: ResponsiveHelper.smallSpacing),
+                  // Text(
+                  //   'Akurasi: ${widget.result.accuracy.toStringAsFixed(1)}%',
+                  //   style: TextStyle(...),
+                  // ),
+                  
                   if (widget.result.vocalType != null &&
                       widget.result.vocalType!.isNotEmpty) ...[
                     SizedBox(height: ResponsiveHelper.smallSpacing),
@@ -184,7 +208,6 @@ class _PitchResultPageState extends State<PitchResultPage> {
                       ),
                     ),
                   ],
-
                   SizedBox(height: ResponsiveHelper.xLargeSpacing),
 
                   // Action Buttons
@@ -197,7 +220,7 @@ class _PitchResultPageState extends State<PitchResultPage> {
                               SnackBar(
                                 content: Text(
                                   hasRecommendations
-                                      ? '${widget.result.recommendedSongs!.length} lagu cocok untuk Anda!'
+                                      ? '${widget.result.recommendedSongs.length} lagu cocok untuk Anda!'
                                       : 'Belum ada rekomendasi lagu',
                                 ),
                               ),
@@ -230,7 +253,8 @@ class _PitchResultPageState extends State<PitchResultPage> {
                           onPressed: () {
                             // Navigate ke Song Detail Page
                             if (hasRecommendations) {
-                              final firstSong = widget.result.recommendedSongs![0];
+                              final firstSong =
+                                  widget.result.recommendedSongs[0];
                               _navigateToSongDetail(firstSong);
                             } else {
                               // Fallback
@@ -274,7 +298,6 @@ class _PitchResultPageState extends State<PitchResultPage> {
                       ),
                     ],
                   ),
-
                   SizedBox(height: ResponsiveHelper.xLargeSpacing),
 
                   // ✅ RECOMMENDED SONGS LIST
@@ -291,7 +314,7 @@ class _PitchResultPageState extends State<PitchResultPage> {
                           ),
                           SizedBox(width: ResponsiveHelper.smallSpacing),
                           Text(
-                            'Lagu Rekomendasi (${widget.result.recommendedSongs!.length})',
+                            'Lagu Rekomendasi (${widget.result.recommendedSongs.length})',
                             style: TextStyle(
                               color: AppColors.textWhite,
                               fontSize: ResponsiveHelper.fontSize(18),
@@ -304,7 +327,7 @@ class _PitchResultPageState extends State<PitchResultPage> {
                     SizedBox(height: ResponsiveHelper.mediumSpacing),
 
                     // Song List
-                    ...widget.result.recommendedSongs!.map((song) {
+                    ...widget.result.recommendedSongs.map((song) {
                       return _buildSongCard(song);
                     }).toList(),
                   ] else ...[
@@ -337,7 +360,6 @@ class _PitchResultPageState extends State<PitchResultPage> {
                       ),
                     ),
                   ],
-
                   SizedBox(height: ResponsiveHelper.largeSpacing),
                 ],
               ),
@@ -348,7 +370,7 @@ class _PitchResultPageState extends State<PitchResultPage> {
     );
   }
 
-  /// Widget untuk card lagu individual (String-based untuk sementara)
+  /// Widget untuk card lagu individual
   Widget _buildSongCard(String songTitle) {
     return Container(
       margin: EdgeInsets.only(

@@ -16,12 +16,10 @@ class PitchLoadingPage extends StatelessWidget {
     return BlocBuilder<PitchBloc, PitchState>(
       builder: (context, state) {
         print('🟡 Loading Page: BlocBuilder state = ${state.runtimeType}');
-        
+
         // ✅ Check state and navigate
         if (state is PitchAnalysisSuccess) {
           print('✅ Loading Page: Success detected! Scheduling navigation...');
-          
-          // Use WidgetsBinding to schedule navigation after build
           WidgetsBinding.instance.addPostFrameCallback((_) {
             print('🚀 Executing navigation to result page...');
             Navigator.pushReplacement(
@@ -33,14 +31,13 @@ class PitchLoadingPage extends StatelessWidget {
           });
         } else if (state is PitchAnalysisError) {
           print('❌ Loading Page: Error detected! Scheduling dialog...');
-          
           WidgetsBinding.instance.addPostFrameCallback((_) {
             showDialog(
               context: context,
               barrierDismissible: false,
               builder: (ctx) => AlertDialog(
                 title: const Text('Rekaman Gagal'),
-                content: Text(
+                content: const Text(
                   'Suara tidak terdeteksi. Pastikan Anda bersenandung dengan suara yang cukup keras.',
                 ),
                 actions: [
@@ -56,8 +53,15 @@ class PitchLoadingPage extends StatelessWidget {
             );
           });
         }
-        
-        // ✅ Always show loading UI while waiting
+
+        // ✅ Extract progress value from state
+        double currentProgress = 0.0;
+        if (state is PitchAnalyzing) {
+          currentProgress = state.progress;
+          print('📊 Current progress: ${(currentProgress * 100).toInt()}%');
+        }
+
+        // ✅ Always show loading UI with progress bar
         return Scaffold(
           body: Container(
             decoration: const BoxDecoration(
@@ -68,6 +72,7 @@ class PitchLoadingPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Circular Progress Indicator (existing)
                     Container(
                       width: ResponsiveHelper.width(150),
                       height: ResponsiveHelper.height(150),
@@ -93,6 +98,8 @@ class PitchLoadingPage extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: ResponsiveHelper.xLargeSpacing),
+
+                    // Title
                     Text(
                       'Menganalisis Suara Anda',
                       style: TextStyle(
@@ -102,6 +109,8 @@ class PitchLoadingPage extends StatelessWidget {
                       ),
                     ),
                     SizedBox(height: ResponsiveHelper.smallSpacing),
+
+                    // Subtitle
                     Text(
                       'Mohon tunggu sebentar...',
                       style: TextStyle(
@@ -109,7 +118,57 @@ class PitchLoadingPage extends StatelessWidget {
                         fontSize: ResponsiveHelper.fontSize(14),
                       ),
                     ),
+                    
+                    SizedBox(height: ResponsiveHelper.largeSpacing),
+
+                    // ✅ NEW: LINEAR PROGRESS BAR
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveHelper.width(40),
+                      ),
+                      child: Column(
+                        children: [
+                          // Progress Bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: currentProgress,
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                              minHeight: 8,
+                            ),
+                          ),
+                          SizedBox(height: ResponsiveHelper.smallSpacing),
+                          
+                          // Progress Percentage Text
+                          Text(
+                            '${(currentProgress * 100).toInt()}%',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: ResponsiveHelper.fontSize(16),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          
+                          SizedBox(height: ResponsiveHelper.smallSpacing / 2),
+                          
+                          // Progress Status Text
+                          Text(
+                            _getProgressMessage(currentProgress),
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: ResponsiveHelper.fontSize(12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                     SizedBox(height: ResponsiveHelper.xLargeSpacing),
+                    
+                    // Loading Dots (existing)
                     _LoadingDots(),
                   ],
                 ),
@@ -120,16 +179,31 @@ class PitchLoadingPage extends StatelessWidget {
       },
     );
   }
+
+  // ✅ Helper method untuk pesan progress
+  String _getProgressMessage(double progress) {
+    if (progress < 0.3) {
+      return 'Memulai analisis...';
+    } else if (progress < 0.6) {
+      return 'Mengunggah audio...';
+    } else if (progress < 0.9) {
+      return 'Mendeteksi pitch...';
+    } else {
+      return 'Finalisasi hasil...';
+    }
+  }
 }
 
+// ✅ Loading Dots (tidak ada perubahan)
 class _LoadingDots extends StatefulWidget {
   @override
   State<_LoadingDots> createState() => _LoadingDotsState();
 }
 
-class _LoadingDotsState extends State<_LoadingDots> with SingleTickerProviderStateMixin {
+class _LoadingDotsState extends State<_LoadingDots>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  
+
   @override
   void initState() {
     super.initState();
@@ -138,13 +212,13 @@ class _LoadingDotsState extends State<_LoadingDots> with SingleTickerProviderSta
       duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
-  
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -156,7 +230,7 @@ class _LoadingDotsState extends State<_LoadingDots> with SingleTickerProviderSta
             final delay = index * 0.2;
             final value = (_controller.value - delay) % 1.0;
             final opacity = value < 0.5 ? value * 2 : (1 - value) * 2;
-            
+
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
               width: 8,
