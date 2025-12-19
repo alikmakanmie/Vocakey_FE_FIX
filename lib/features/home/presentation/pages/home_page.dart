@@ -29,7 +29,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchSongs() async {
     try {
       final response = await http.get(
-        Uri.parse('https://securities-pushed-specialists-languages.trycloudflare.com//api/songs'),
+        Uri.parse('https://pound-essex-clinical-thumbnails.trycloudflare.com/api/songs'),
       );
 
       if (response.statusCode == 200) {
