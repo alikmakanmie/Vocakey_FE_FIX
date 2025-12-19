@@ -7,3 +7,5 @@ abstract class HomeRepository {
   Future<Either<Failure, List<Song>>> getFeaturedSongs();
   Future<Either<Failure, void>> saveRecentNote(String note);
 }
+
+0\

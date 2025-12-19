@@ -1,6 +1,6 @@
 class ApiConstants {
   // Base URL - sesuaikan dengan backend Anda
-  static const String baseUrl = 'https://nightlife-viewers-via-democratic.trycloudflare.com/';
+  static const String baseUrl = 'https://securities-pushed-specialists-languages.trycloudflare.com/';
   
   // Endpoints
   static const String analyzeEndpoint = '/api/analyze';
