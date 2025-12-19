@@ -91,7 +91,7 @@ class _SongDetailPageState extends State<SongDetailPage> {
 
   Future<void> _fetchSongDataFromBackend() async {
     try {
-      final baseUrl = 'https://securities-pushed-specialists-languages.trycloudflare.com/';
+      final baseUrl = 'https://nightlife-viewers-via-democratic.trycloudflare.com/';
       final encodedTitle = Uri.encodeComponent(widget.arguments.songTitle);
       
       print('🔍 Searching for song: ${widget.arguments.songTitle}');
@@ -137,7 +137,7 @@ class _SongDetailPageState extends State<SongDetailPage> {
       if (_actualAudioUrl != null && _actualAudioUrl!.isNotEmpty) {
         audioUrl = _actualAudioUrl!;
       } else {
-        final baseUrl = 'https://securities-pushed-specialists-languages.trycloudflare.com/';
+        final baseUrl = 'https://nightlife-viewers-via-democratic.trycloudflare.com/';
         final safeTitle = widget.arguments.songTitle.replaceAll(' ', '_');
         audioUrl = '$baseUrl/songs/file/$safeTitle';
       }
@@ -237,7 +237,7 @@ class _SongDetailPageState extends State<SongDetailPage> {
 
         // Reload original audio
         final originalUrl = _actualAudioUrl ?? 
-            'https://securities-pushed-specialists-languages.trycloudflare.com//songs/file/${widget.arguments.songTitle.replaceAll(' ', '_')}';
+            'https://nightlife-viewers-via-democratic.trycloudflare.com/songs/file/${widget.arguments.songTitle.replaceAll(' ', '_')}';
         
         await _audioPlayer!.setUrl(originalUrl);
 
@@ -295,7 +295,7 @@ class _SongDetailPageState extends State<SongDetailPage> {
 
   try {
     final songTitle = Uri.encodeComponent(widget.arguments.songTitle);
-    final baseUrl = 'https://securities-pushed-specialists-languages.trycloudflare.com/';  // ✅ MUST MATCH YOUR BACKEND IP
+    final baseUrl = 'https://nightlife-viewers-via-democratic.trycloudflare.com/';  // ✅ MUST MATCH YOUR BACKEND IP
     
     print('🎵 Requesting transpose: $_currentTransposeSemitone semitones');
 
