@@ -1,110 +1,94 @@
 import '../../domain/entities/analysis_result.dart';
 
+/// Model untuk response API analisis vokal
+/// Sesuai dengan backend response format baru (v2.0)
 class AnalysisModel extends AnalysisResult {
   const AnalysisModel({
-    required String note,
-    required String vocalRange,
-    required double accuracy,
-    String? vocalType,
-    List<String> recommendedSongs = const [],
+    required String baseNote,
+    required double baseFrequency,
+    required String songKey,
+    required String songScale,
+    required double keyConfidence,
+    required List<SongRecommendation> recommendations,
   }) : super(
-          note: note,
-          vocalRange: vocalRange,
-          accuracy: accuracy,
-          vocalType: vocalType,
-          recommendedSongs: recommendedSongs,
+          baseNote: baseNote,
+          baseFrequency: baseFrequency,
+          songKey: songKey,
+          songScale: songScale,
+          keyConfidence: keyConfidence,
+          recommendations: recommendations,
         );
 
+  /// Parse dari JSON response backend
   factory AnalysisModel.fromJson(Map<String, dynamic> json) {
-    print('=== PARSING ANALYSIS RESULT ===');
-    print('Raw JSON: $json');
+    print('=== PARSING ANALYSIS RESULT (v2.0) ===');
 
-    // Parse recommended_songs dari recommendations array
-    List<String> songs = [];
-    if (json['recommended_songs'] != null) {
-      print('Found recommended_songs field');
-      try {
-        songs = List<String>.from(json['recommended_songs']);
-      } catch (e) {
-        print('Error parsing recommended_songs: $e');
-      }
-    } else if (json['recommendations'] != null) {
-      print('Extracting from recommendations array');
+    // Parse data object
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final songKeyData = data['song_key'] as Map<String, dynamic>? ?? {};
+
+    // Extract base note & frequency
+    final String baseNote = data['base_note'] as String? ?? 'Unknown';
+    final double baseFrequency = 
+        (data['base_frequency'] as num?)?.toDouble() ?? 0.0;
+
+    // Extract song key info
+    final String songKey = songKeyData['key'] as String? ?? 'Unknown';
+    final String songScale = songKeyData['scale'] as String? ?? 'major';
+    final double keyConfidence = 
+        (songKeyData['confidence'] as num?)?.toDouble() ?? 0.0;
+
+    // Parse recommendations
+    List<SongRecommendation> recommendations = [];
+    if (json['recommendations'] != null) {
       try {
         final recs = json['recommendations'] as List;
-        songs = recs.map((song) {
-          if (song is Map) {
-            return song['title'] as String? ?? 'Unknown Song';
-          } else if (song is String) {
-            return song;
-          }
-          return 'Unknown Song';
+        recommendations = recs.map((song) {
+          return SongRecommendation.fromJson(song as Map<String, dynamic>);
         }).toList();
-        print('Extracted ${songs.length} songs: $songs');
+        
+        print('✓ Parsed ${recommendations.length} recommendations');
       } catch (e) {
-        print('Error extracting recommendations: $e');
+        print('❌ Error parsing recommendations: $e');
       }
     }
 
-    // Parse note from nested data object
-    final String rawNote = json['data']?['note'] ?? json['note'] ?? 'Unknown';
-    
-    // ✅ CLEAN NOTE: Remove "major" and "minor"
-    final String cleanedNote = _cleanNote(rawNote);
-    
-    final String vocalRange =
-        json['data']?['vocal_range'] ?? json['vocal_range'] ?? 'Unknown';
-    final double accuracy =
-        (json['data']?['accuracy'] ?? json['accuracy'] ?? 0.0).toDouble();
-    final String? vocalType =
-        json['data']?['vocal_type'] ?? json['vocal_type'];
-
     print('Parsed data:');
-    print('  - Raw Note: $rawNote');
-    print('  - Cleaned Note: $cleanedNote'); // ✅ Show cleaned note
-    print('  - Vocal Range: $vocalRange');
-    print('  - Accuracy: $accuracy');
-    print('  - Vocal Type: $vocalType');
-    print('  - Recommended Songs: ${songs.length}');
-    print('===============================');
+    print(' - Base Note: $baseNote');
+    print(' - Base Frequency: $baseFrequency Hz');
+    print(' - Song Key: $songKey $songScale');
+    print(' - Key Confidence: ${(keyConfidence * 100).toStringAsFixed(1)}%');
+    print(' - Recommendations: ${recommendations.length} songs');
+    print('=====================================');
 
     return AnalysisModel(
-      note: cleanedNote, // ✅ Use cleaned note
-      vocalRange: vocalRange,
-      accuracy: accuracy,
-      vocalType: vocalType,
-      recommendedSongs: songs,
+      baseNote: baseNote,
+      baseFrequency: baseFrequency,
+      songKey: songKey,
+      songScale: songScale,
+      keyConfidence: keyConfidence,
+      recommendations: recommendations,
     );
-  }
-
-  // ✅ NEW: Helper method to clean note
-  static String _cleanNote(String rawNote) {
-    // Remove "major", "minor", and whitespace variations (case insensitive)
-    String cleaned = rawNote
-        .replaceAll(RegExp(r'\s*major\s*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s*minor\s*', caseSensitive: false), '')
-        .trim();
-    
-    // If empty after cleaning, return original
-    if (cleaned.isEmpty) {
-      return rawNote;
-    }
-    
-    return cleaned;
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'note': note,
-      'vocal_range': vocalRange,
-      'accuracy': accuracy,
-      'vocal_type': vocalType,
-      'recommended_songs': recommendedSongs,
+      'data': {
+        'base_note': baseNote,
+        'base_frequency': baseFrequency,
+        'song_key': {
+          'key': songKey,
+          'scale': songScale,
+          'confidence': keyConfidence,
+          'full_key': '$songKey $songScale',
+        },
+      },
+      'recommendations': recommendations.map((r) => r.toJson()).toList(),
     };
   }
 
   @override
   String toString() {
-    return 'AnalysisModel(note: $note, vocalRange: $vocalRange, accuracy: $accuracy, vocalType: $vocalType, recommendedSongs: ${recommendedSongs.length})';
+    return 'AnalysisModel(baseNote: $baseNote, songKey: $songKey $songScale, recommendations: ${recommendations.length})';
   }
 }

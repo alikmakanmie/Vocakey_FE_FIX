@@ -1,9 +1,14 @@
 class ApiConstants {
-  // Base URL - sesuaikan dengan backend Anda
-  static const String baseUrl = 'https://pound-essex-clinical-thumbnails.trycloudflare.com/';
+  // Base URL - Cloudflare Tunnel (tanpa trailing slash)
+  static const String baseUrl = 'https://greene-broken-friendly-location.trycloudflare.com';
   
   // Endpoints
-  static const String analyzeEndpoint = '/api/analyze';
+  static const String analyzeEndpoint = '/api/analyze'; // ✅ CORRECT
+  static const String songsEndpoint = '/api/songs';        // ✅ NEW
+  
+  // Full URLs
+  static String get analyzePitchUrl => '$baseUrl$analyzeEndpoint';
+  static String get getSongsUrl => '$baseUrl$songsEndpoint';
   
   // Headers
   static const Map<String, String> headers = {
@@ -11,6 +16,6 @@ class ApiConstants {
   };
   
   // Recording settings
-  static const int maxRecordDuration = 10; // seconds
+  static const int maxRecordDuration = 30; // seconds (updated to 30)
   static const String audioFormat = 'wav';
 }

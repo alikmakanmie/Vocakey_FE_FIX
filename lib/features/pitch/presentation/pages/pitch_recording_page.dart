@@ -1,19 +1,18 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:noise_meter/noise_meter.dart';
+import 'package:percent_indicator/percent_indicator.dart';
+
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/services/permission_service.dart';
 import '../bloc/pitch_bloc.dart';
 import '../bloc/pitch_event.dart';
 import '../bloc/pitch_state.dart';
 import 'pitch_result_page.dart';
-
 
 class PitchRecordingPage extends StatefulWidget {
   const PitchRecordingPage({Key? key}) : super(key: key);
@@ -26,18 +25,22 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
     with SingleTickerProviderStateMixin {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final PermissionService _permissionService = PermissionService();
+
   bool _isRecording = false;
   bool _isAnalyzing = false;
   int _recordDuration = 0;
   Timer? _timer;
   String? _audioPath;
-  StreamSubscription? _blocSubscription;
+  StreamSubscription<PitchState>? _blocSubscription;
 
-  // ✅ Real-time audio amplitude
+  // Real-time audio amplitude
   NoiseMeter? _noiseMeter;
   StreamSubscription<NoiseReading>? _noiseSubscription;
   List<double> _amplitudes = List.filled(12, 0.2);
   double _currentDecibel = 0;
+
+  // ✅ NEW: Max recording duration (30 seconds)
+  static const int maxRecordingDuration = 30;
 
   @override
   void initState() {
@@ -70,39 +73,62 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
         setState(() {
           _isAnalyzing = false;
         });
-
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Rekaman Gagal'),
-            content: const Text(
-              'Suara tidak terdeteksi. Pastikan Anda bersenandung dengan suara yang cukup keras.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _startRecording();
-                },
-                child: const Text('Coba Lagi'),
-              ),
-            ],
-          ),
-        );
+        _showErrorDialog(state.message);
       }
     });
   }
 
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red, size: 28),
+            SizedBox(width: 12),
+            Text('Recording Failed', style: TextStyle(fontSize: 18)),
+          ],
+        ),
+        content: Text(
+          message.isEmpty
+              ? 'Voice not detected. Make sure you hum clearly.'
+              : message,
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startRecording();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6B9FE8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Try Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _startRecording() async {
     try {
-      // ✅ Request permission dulu sebelum recording
+      // Request permission
       bool hasPermission = await _permissionService.requestMicrophonePermission();
-
       if (!hasPermission) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Microphone permission is required to record audio'),
+              content: Text('Microphone permission is required'),
               backgroundColor: Colors.red,
             ),
           );
@@ -110,14 +136,11 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
         return;
       }
 
-      // Lanjutkan dengan recording jika permission granted
       if (await _audioRecorder.hasPermission()) {
-        final Directory appDocumentsDir =
-            await getApplicationDocumentsDirectory();
+        final Directory appDocumentsDir = await getApplicationDocumentsDirectory();
         final String filePath =
             '${appDocumentsDir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-        // Start audio recording
         await _audioRecorder.start(
           const RecordConfig(
             encoder: AudioEncoder.wav,
@@ -128,7 +151,6 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
           path: filePath,
         );
 
-        // ✅ Start listening to noise meter for real-time amplitude
         _startNoiseMonitoring();
 
         setState(() {
@@ -147,7 +169,8 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
             _recordDuration++;
           });
 
-          if (_recordDuration >= 10) {
+          // ✅ Auto stop at max duration
+          if (_recordDuration >= maxRecordingDuration) {
             timer.cancel();
             _stopRecording();
           }
@@ -155,24 +178,21 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
       }
     } catch (e) {
       print('Error starting recording: $e');
+      if (mounted) {
+        _showErrorDialog('Failed to start recording: $e');
+      }
     }
   }
 
-  // ✅ Monitor microphone input in real-time
   void _startNoiseMonitoring() {
     try {
       _noiseSubscription = _noiseMeter?.noise.listen(
         (NoiseReading noiseReading) {
           if (!mounted) return;
-
           setState(() {
             _currentDecibel = noiseReading.meanDecibel;
-
-            // Update amplitudes based on decibel level
-            // Normalize decibel (typically 20-90 dB) to height (0.2-1.0)
             double normalizedDb = (_currentDecibel - 20).clamp(0, 70) / 70;
             
-            // Shift existing values and add new one
             for (int i = _amplitudes.length - 1; i > 0; i--) {
               _amplitudes[i] = _amplitudes[i - 1];
             }
@@ -191,15 +211,14 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
   Future<void> _stopRecording() async {
     try {
       _timer?.cancel();
-      _noiseSubscription?.cancel(); // ✅ Stop noise monitoring
-      
+      _noiseSubscription?.cancel();
       final path = await _audioRecorder.stop();
 
       setState(() {
         _isRecording = false;
         _audioPath = path;
         _isAnalyzing = true;
-        _amplitudes = List.filled(12, 0.2); // Reset amplitudes
+        _amplitudes = List.filled(12, 0.2);
       });
 
       if (path != null && mounted) {
@@ -210,11 +229,22 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
       setState(() {
         _isAnalyzing = false;
       });
+      if (mounted) {
+        _showErrorDialog('Failed to stop recording: $e');
+      }
     }
+  }
+
+  String _formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final progress = _recordDuration / maxRecordingDuration;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -230,13 +260,13 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
                   children: [
                     IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: _isAnalyzing
+                      onPressed: _isAnalyzing || _isRecording
                           ? null
                           : () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
                     const Text(
-                      'Merekam',
+                      'Record Your Voice',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -247,90 +277,174 @@ class _PitchRecordingPageState extends State<PitchRecordingPage>
                 ),
               ),
 
-              const Spacer(flex: 2),
+              const Spacer(flex: 1),
 
               // Title
               const Text(
-                'Tentukan Suara Nada\nDasar Anda',
+                'Determine Your\nBase Note',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                   height: 1.3,
                 ),
               ),
-
-              const SizedBox(height: 60),
-
-              // Audio Spectrum (real-time sync)
-              _isRecording
-                  ? _AudioSpectrumVisualizer(
-                      amplitudes: _amplitudes,
-                      isRecording: _isRecording,
-                    )
-                  : const SizedBox(height: 150),
-
-              const Spacer(),
-
-              // Mic Button
-              GestureDetector(
-                onTap: !_isRecording && !_isAnalyzing ? _startRecording : null,
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 4,
-                    ),
-                  ),
-                  child: _isAnalyzing
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF6B9FE8),
-                            strokeWidth: 3,
-                          ),
-                        )
-                      : Icon(
-                          Icons.mic,
-                          size: 60,
-                          color: _isRecording
-                              ? Colors.red
-                              : const Color(0xFF6B9FE8),
-                        ),
+              const SizedBox(height: 12),
+              Text(
+                _isAnalyzing
+                    ? 'Analyzing your voice...'
+                    : _isRecording
+                        ? 'Recording in progress...'
+                        : 'Tap the button to start',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 16,
                 ),
+              ),
+
+              const Spacer(flex: 1),
+
+              // ✅ Audio Spectrum Visualizer (only when recording)
+              if (_isRecording)
+                _AudioSpectrumVisualizer(
+                  amplitudes: _amplitudes,
+                  isRecording: _isRecording,
+                )
+              else
+                const SizedBox(height: 150),
+
+              const Spacer(flex: 1),
+
+              // ✅ MAIN RECORDING BUTTON WITH PROGRESS
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Circular Progress Indicator (when recording)
+                  if (_isRecording)
+                    CircularPercentIndicator(
+                      radius: 90.0,
+                      lineWidth: 8.0,
+                      percent: progress.clamp(0.0, 1.0),
+                      center: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.mic,
+                          size: 70,
+                          color: Colors.red,
+                        ),
+                      ),
+                      progressColor: Colors.red,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      circularStrokeCap: CircularStrokeCap.round,
+                    )
+                  else
+                    // Static button (when not recording)
+                    GestureDetector(
+                      onTap: !_isAnalyzing ? _startRecording : null,
+                      child: Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: _isAnalyzing
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF6B9FE8),
+                                  strokeWidth: 4,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.mic,
+                                size: 70,
+                                color: Color(0xFF6B9FE8),
+                              ),
+                      ),
+                    ),
+                ],
               ),
 
               const SizedBox(height: 24),
 
-              // Status Text
-              Text(
-                _isAnalyzing
-                    ? 'Mohon tunggu sebentar...'
-                    : (_isRecording
-                        ? 'Mulai Rekaman Humming'
-                        : 'Mulai Rekaman Humming'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              // ✅ TIMER DISPLAY (when recording)
+if (_isRecording)
+  Container(
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Text(
+      _formatDuration(_recordDuration),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        // ✅ FIXED: Removed fontFeatureSettings
+      ),
+    ),
+  )
+else
+  const SizedBox(height: 48),
 
-              const SizedBox(height: 8),
 
-              Text(
-                _isAnalyzing
-                    ? ''
-                    : 'Tahan tombol untuk merekam',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
+              const SizedBox(height: 20),
+
+              // ✅ STOP BUTTON (visible only when recording)
+              if (_isRecording)
+                ElevatedButton.icon(
+                  onPressed: _stopRecording,
+                  icon: const Icon(Icons.stop, size: 24),
+                  label: const Text(
+                    'STOP RECORDING',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    elevation: 8,
+                  ),
+                )
+              else if (!_isAnalyzing)
+                Text(
+                  'Hum or sing clearly for best results',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
                 ),
-              ),
 
               const Spacer(flex: 2),
             ],
@@ -355,51 +469,53 @@ class _AudioSpectrumVisualizer extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 150,
-      width: 200,
+      width: 220,
       child: Stack(
         alignment: Alignment.center,
         children: [
           // Background Circle
           Container(
-            width: 140,
-            height: 140,
+            width: 160,
+            height: 160,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withOpacity(0.1),
             ),
           ),
-
-          // Spectrum Bars (synced with mic input)
+          // Spectrum Bars
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: List.generate(12, (index) {
-              // Use real amplitude data
               final amplitude = amplitudes[index];
-              final height = 20 + (amplitude * 60); // 20-80px range
-
+              final height = 20 + (amplitude * 70);
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 100),
+                duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: 6,
+                width: 7,
                 height: height,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               );
             }),
           ),
-
           // Music note icon
           Positioned(
-            top: 10,
-            right: 30,
+            top: 5,
+            right: 20,
             child: Icon(
-              Icons.music_note,
+              Icons.music_note_rounded,
               color: Colors.white.withOpacity(0.8),
-              size: 24,
+              size: 28,
             ),
           ),
         ],

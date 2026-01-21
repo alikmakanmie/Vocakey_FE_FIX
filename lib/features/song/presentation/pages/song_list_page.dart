@@ -35,7 +35,7 @@ class _SongListPageState extends State<SongListPage> {
     
     try {
       final response = await http.get(
-        Uri.parse('https://pound-essex-clinical-thumbnails.trycloudflare.com//api/songs'),
+        Uri.parse('https://greene-broken-friendly-location.trycloudflare.com//api/songs'),
       );
 
       if (response.statusCode == 200) {

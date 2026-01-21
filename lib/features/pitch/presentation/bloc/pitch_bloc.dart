@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../domain/usecases/analyze_audio.dart';
 import 'pitch_event.dart';
 import 'pitch_state.dart';
@@ -18,57 +19,68 @@ class PitchBloc extends Bloc<PitchEvent, PitchState> {
     print('   Audio path: ${event.audioPath}');
 
     // Progress 0%
-    emit(PitchAnalyzing(progress: 0.0));
-    print('📊 Progress: 0% - Memulai analisis...');
+    emit(PitchAnalyzing(
+      progress: 0.0,
+      statusMessage: 'Initializing...',
+    ));
+    print('📊 Progress: 0% - Initializing...');
     await Future.delayed(const Duration(milliseconds: 800));
 
     // Progress 30%
-    emit(PitchAnalyzing(progress: 0.3));
-    print('📊 Progress: 30% - Mengunggah audio...');
+    emit(PitchAnalyzing(
+      progress: 0.3,
+      statusMessage: 'Uploading audio...',
+    ));
+    print('📊 Progress: 30% - Uploading audio...');
     await Future.delayed(const Duration(milliseconds: 600));
 
     // Progress 60%
-    emit(PitchAnalyzing(progress: 0.6));
-    print('📊 Progress: 60% - Memproses pitch detection...');
-    
+    emit(PitchAnalyzing(
+      progress: 0.6,
+      statusMessage: 'Detecting pitch...',
+    ));
+    print('📊 Progress: 60% - Detecting pitch...');
+
     // Call API
     final result = await analyzeAudio(event.audioPath);
 
-    // ✅ EXTRACT hasil DULU sebelum emit
-    bool isSuccess = false;
-    dynamic analysisResult;
-    String? errorMessage;
+    // Check if emitter is still active
+    if (emit.isDone) {
+      print('⚠️ BLoC: Emitter already closed, skipping emit');
+      return;
+    }
 
-    result.fold(
-      (failure) {
-        isSuccess = false;
-        errorMessage = failure.message;
+    // Extract hasil dan emit
+    await result.fold(
+      (failure) async {
         print('❌ BLoC: Analysis failed - ${failure.message}');
+        emit(PitchAnalysisError(failure.message));
+        print('🔴 BLoC: State emitted - PitchAnalysisError');
       },
-      (success) {
-        isSuccess = true;
-        analysisResult = success;
+      (success) async {
         print('✅ BLoC: Analysis success!');
-        print('   Note: ${success.note}');
-        print('   Range: ${success.vocalRange}');
-        print('   Accuracy: ${success.accuracy}%');
-        print('   Vocal Type: ${success.vocalType}');
+        print('   Base Note: ${success.baseNote}');
+        print('   Base Frequency: ${success.baseFrequency} Hz');
+        print('   Song Key: ${success.fullKey}');
+        print('   Confidence: ${success.confidencePercentage.toStringAsFixed(1)}%');
+        print('   Recommendations: ${success.recommendations.length} songs');
+
+        // Progress 90%
+        emit(PitchAnalyzing(
+          progress: 0.9,
+          statusMessage: 'Finalizing...',
+        ));
+        print('📊 Progress: 90% - Finalizing...');
+
+        // Await delay before final emit
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        // Check if still active before final emit
+        if (!emit.isDone) {
+          emit(PitchAnalysisSuccess(success));
+          print('🟢 BLoC: State emitted - PitchAnalysisSuccess');
+        }
       },
     );
-
-    // ✅ EMIT berdasarkan hasil extraction
-    if (isSuccess && analysisResult != null) {
-      // Progress 90%
-      emit(PitchAnalyzing(progress: 0.9));
-      print('📊 Progress: 90% - Finalisasi hasil...');
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Success
-      emit(PitchAnalysisSuccess(analysisResult));
-      print('🟢 BLoC: State emitted - PitchAnalysisSuccess');
-    } else {
-      // Error
-      emit(PitchAnalysisError(errorMessage ?? 'Unknown error'));
-    }
   }
 }
